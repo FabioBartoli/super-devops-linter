@@ -1,0 +1,62 @@
+name: Repo Security Scan
+description: >
+  Composite Action que roda Hadolint, Trivy, Docker Scout,
+  tfsec, Checkov e Trivy-config; abre issues para cada finding.
+
+inputs:
+  docker-context:
+    description: 'Diretório usado no docker build'
+    default: '.'
+    required: false
+
+runs:
+  using: composite
+  steps:
+    - name: Install scanners
+      shell: bash
+      run: |
+        set -euo pipefail
+        sudo apt-get update -y
+        sudo apt-get install -y jq curl git
+        
+        # Hadolint
+        curl -L https://github.com/hadolint/hadolint/releases/latest/download/hadolint-$(uname -s)-$(uname -m) \
+          -o /usr/local/bin/hadolint && chmod +x /usr/local/bin/hadolint
+        
+        # Trivy (cli + db embutido)
+        curl -sfL https://raw.githubusercontent.com/aquasecurity/trivy/main/contrib/install.sh | sh -s -- -b /usr/local/bin
+        
+        # tfsec
+        curl -s https://raw.githubusercontent.com/aquasecurity/tfsec/master/scripts/install_linux.sh | bash
+        
+        # Docker Scout
+        docker scout --help > /dev/null 2>&1 || docker extension install docker/scout-cli:latest
+        
+        # Checkov
+        pip install --quiet checkov==3.*
+
+    - name: Scan Docker and open issues
+      shell: bash
+      env:
+        GITHUB_TOKEN: ${{ github.token }}
+        DOCKER_CONTEXT: ${{ inputs.docker-context }}
+      run: |
+        bash "${{ github.action_path }}/scripts/scan_docker.sh"
+
+    - name: Scan Terraform and open issues
+      shell: bash
+      env:
+        GITHUB_TOKEN: ${{ github.token }}
+      run: |
+        bash "${{ github.action_path }}/scripts/scan_terraform.sh"
+
+    - name: Fail if any issues were created
+      id: verdict
+      shell: bash
+      run: |
+        if [ -f "$GITHUB_WORKSPACE/issues_found.flag" ]; then
+          echo "Vulnerabilidades encontradas - falhando build"
+          exit 1
+        else
+          echo "Nenhum problema encontrado"
+        fi
