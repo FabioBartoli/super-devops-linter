@@ -77,6 +77,7 @@ if [[ -f "${WORKDIR}/Dockerfile" ]]; then
       fi
     fi
   done
+fi
 
 # --- Docker Scout ---
 echo "▶️ Docker Scout CVEs scan"
