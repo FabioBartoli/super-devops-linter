@@ -20,7 +20,7 @@ jq -c '.results[]?' /tmp/tfsec.json | while read -r res; do
   mark_problem
   issue_info=$(find_issue "$title")
   if [[ -z "$issue_info" ]]; then
-    create_issue "$title" "\\\json\n${res}\n\\\" "terraform-security"
+    create_issue "$title" "\`\`\`json\n${res}\n\`\`\`" "terraform-security"
   else
     issue_no=${issue_info%%:*}
     issue_state=${issue_info##*:}
@@ -42,7 +42,7 @@ jq -c '.diagnostics[]?' /tmp/tflint.json | while read -r diag; do
   mark_problem
   issue_info=$(find_issue "$title")
   if [[ -z "$issue_info" ]]; then
-    create_issue "$title" "\\\json\n${diag}\n\\\" "terraform-security"
+    create_issue "$title" "\`\`\`json\n${diag}\n\`\`\`" "terraform-security"
   else
     issue_no=${issue_info%%:*}
     issue_state=${issue_info##*:}
@@ -64,7 +64,7 @@ jq -c '.Results[]?.Misconfigurations[]?' /tmp/trivy_tf.json | while read -r mis;
   mark_problem
   issue_info=$(find_issue "$title")
   if [[ -z "$issue_info" ]]; then
-    create_issue "$title" "\\\json\n${mis}\n\\\" "terraform-security"
+    create_issue "$title" "\`\`\`json\n${mis}\n\`\`\`" "terraform-security"
   else
     issue_no=${issue_info%%:*}
     issue_state=${issue_info##*:}
