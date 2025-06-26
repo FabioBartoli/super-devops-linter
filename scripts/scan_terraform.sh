@@ -46,7 +46,7 @@ echo "▶️ Trivy config scanning"
 trivy config --quiet --format json -o /tmp/trivy_tf.json "$WORKDIR" || true
 jq -c '.Results[]?.Misconfigurations[]?' /tmp/trivy_tf.json | while read -r mis; do
   id=$(echo "$mis" | jq -r .ID)
-  title="Trivy: $id"
+  title="Trivy Terraform: $id"
   mark_problem
   if ! issue_exists "$title"; then
     create_issue "$title" "\`\`\`json\n${mis}\n\`\`\`" "terraform-security"

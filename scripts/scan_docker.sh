@@ -56,7 +56,7 @@ if [[ -f "${WORKDIR}/Dockerfile" ]]; then
     id=$(echo "$vul" | jq -r .VulnerabilityID)
     pkg=$(echo "$vul" | jq -r .PkgName)
     sev=$(echo "$vul" | jq -r .Severity)
-    title="Trivy: $id in $pkg ($sev)"
+    title="Trivy Docker: $id in $pkg ($sev)"
     mark_problem
     if ! issue_exists "$title"; then
       create_issue "$title" "\`\`\`json\n${vul}\n\`\`\`" "docker-security"
