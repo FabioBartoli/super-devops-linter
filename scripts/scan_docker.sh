@@ -32,7 +32,7 @@ if [[ -f "${WORKDIR}/Dockerfile" ]]; then
     title="Hadolint [$code] $msg"
     mark_problem
     body="\`\`\`json\n${finding}\n\`\`\`"
-    issue_info=$(find_issue "$title")
+    issue_info=$(find_issue "$title" || true)
     if [[ -z "$issue_info" ]]; then
       create_issue "$title" "$body" "lint"
     else
@@ -66,7 +66,7 @@ if [[ -f "${WORKDIR}/Dockerfile" ]]; then
     title="Trivy Docker: $id in $pkg ($sev)"
     mark_problem
     body="\`\`\`json\n${vul}\n\`\`\`"
-    issue_info=$(find_issue "$title")
+    issue_info=$(find_issue "$title" || true)
     if [[ -z "$issue_info" ]]; then
       create_issue "$title" "$body" "docker-security"
     else
@@ -89,7 +89,7 @@ jq -c '.runs[].results[]' /tmp/scout.json | while read -r vul; do
   sev=$(echo "$vul" | jq -r '.properties.severity // "unknown"')
   title="Docker Scout: $id ($sev)"
   mark_problem
-  issue_info=$(find_issue "$title")
+  issue_info=$(find_issue "$title" || true)
   if [[ -z "$issue_info" ]]; then
     create_issue "$title" "\`\`\`json\n${vul}\n\`\`\`" "docker-security"
   else
