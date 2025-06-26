@@ -13,7 +13,7 @@ fi
 # Terrascan       #
 ###################
 echo "▶️ Terrascan scanning"
-terrascan scan -t terraform -o json -f "$WORKDIR" > /tmp/terrascan.json || true
+terrascan scan -i terraform -t aws -d "$WORKDIR" -o json > /tmp/terrascan.json || true
 jq -c '.results.violations[]?' /tmp/terrascan.json | while read -r vio; do
   rule=$(echo "$vio" | jq -r .rule_name)
   title="Terrascan: $rule"
