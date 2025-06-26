@@ -38,3 +38,18 @@ create_issue() {
   # marca para falhar no passo final
   touch "$GITHUB_WORKSPACE/issues_found.flag"
 }
+
+# Retorna "numero:state" da issue com título exato, se existir
+find_issue() {
+  local title="$1"
+  curl -s -H "$AUTH" "${API_ROOT}/issues?state=all&per_page=100" | \
+    jq -r --arg t "$title" '.[] | select(.title==$t) | "\(.number):\(.state)"' | head -n1
+}
+
+# Reabre issue fechada
+reopen_issue() {
+  local number="$1"
+  curl -s -X PATCH -H "$AUTH" -H "Content-Type: application/json" \
+       -d '{"state":"open"}' \
+       "${API_ROOT}/issues/${number}" >/dev/null
+}
