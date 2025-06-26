@@ -17,10 +17,9 @@ tfsec --no-color --format json --out /tmp/tfsec.json "$WORKDIR" || true
 jq -c '.results[]?' /tmp/tfsec.json | while read -r res; do
   rule=$(echo "$res" | jq -r .rule_id)
   title="tfsec: $rule"
+  mark_problem
   if ! issue_exists "$title"; then
     create_issue "$title" "\`\`\`json\n${res}\n\`\`\`" "terraform-security"
-  else
-    mark_problem
   fi
 done
 
@@ -40,10 +39,9 @@ jq -c '
 ' /tmp/checkov.json | while read -r res; do
   id=$(echo "$res" | jq -r .check_id)
   title="Checkov: $id"
+  mark_problem
   if ! issue_exists "$title"; then
     create_issue "$title" "\`\`\`json\n${res}\n\`\`\`" "terraform-security"
-  else
-    mark_problem
   fi
 done
 
@@ -57,9 +55,8 @@ trivy config --quiet --format json -o /tmp/trivy_tf.json "$WORKDIR" || true
 jq -c '.Results[]?.Misconfigurations[]?' /tmp/trivy_tf.json | while read -r mis; do
   id=$(echo "$mis" | jq -r .ID)
   title="Trivy: $id"
+  mark_problem
   if ! issue_exists "$title"; then
     create_issue "$title" "\`\`\`json\n${mis}\n\`\`\`" "terraform-security"
-  else
-    mark_problem
   fi
 done

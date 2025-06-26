@@ -53,13 +53,13 @@ runs:
       run: |
         bash "${{ github.action_path }}/scripts/scan_terraform.sh"
 
-    - name: Fail if any issues were created
-      id: verdict
+    - name: Fail if any issues or problems were found
       shell: bash
       run: |
-        if [ -f "$GITHUB_WORKSPACE/issues_found.flag" ]; then
-          echo "Vulnerabilidades encontradas - falhando build"
+        if [ -f "$GITHUB_WORKSPACE/issues_found.flag" ] || \
+          [ -f "$GITHUB_WORKSPACE/problems_found.flag" ]; then
+          echo "❌ Vulnerabilidades/misconfigs encontradas — falhando job"
           exit 1
         else
-          echo "Nenhum problema encontrado"
+          echo "✅ Nenhum problema pendente"
         fi
