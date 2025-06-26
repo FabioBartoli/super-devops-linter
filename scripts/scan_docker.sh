@@ -78,24 +78,21 @@ if [[ -f "${WORKDIR}/Dockerfile" ]]; then
     fi
   done
 
-  # --- Docker Scout ---
-  echo "▶️ Docker Scout quickview"
-  docker scout quickview "$image" -o json > /tmp/scout.json || true 
-  jq -c '.vulnerabilities[]?' /tmp/scout.json | while read -r vul; do
-    id=$(echo "$vul" | jq -r .cve)
-    sev=$(echo "$vul" | jq -r .severity)
-    title="Docker Scout: $id ($sev)"
-    mark_problem
-    body="\`\`\`json\n${vul}\n\`\`\`"
-    issue_info=$(find_issue "$title")
-    if [[ -z "$issue_info" ]]; then
-      create_issue "$title" "$body" "docker-security"
-    else
-      issue_no=${issue_info%%:*}
-      issue_state=${issue_info##*:}
-      if [[ "$issue_state" == "closed" ]]; then
-        reopen_issue "$issue_no"
-      fi
-    fi
-  done
-fi
+# --- Docker Scout ---
+echo "▶️ Docker Scout CVEs scan"
+docker scout cves "$image" --format json > /tmp/scout.json || true
+jq -c '.vulnerabilities[]?' /tmp/scout.json | while read -r vul; do
+  id=$(echo "$vul" | jq -r .cve)
+  sev=$(echo "$vul" | jq -r .severity)
+  title="Docker Scout: $id ($sev)"
+  mark_problem
+  issue_info=$(find_issue "$title")
+  if [[ -z "$issue_info" ]]; then
+    create_issue "$title" "\`\`\`json\n${vul}\n\`\`\`" "docker-security"
+  else
+    issue_no=${issue_info%%:*}
+    issue_state=${issue_info##*:}
+    [[ "$issue_state" == "closed" ]] && reopen_issue "$issue_no"
+  fi
+done
+
