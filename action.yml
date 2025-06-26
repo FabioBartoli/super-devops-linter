@@ -27,7 +27,10 @@ runs:
         curl -sfL https://raw.githubusercontent.com/aquasecurity/trivy/main/contrib/install.sh | sh -s -- -b /usr/local/bin
         
         # tfsec
-        curl -s https://raw.githubusercontent.com/aquasecurity/tfsec/master/scripts/install_linux.sh | bash
+        TFSEC_VERSION=$(curl -s https://api.github.com/repos/aquasecurity/tfsec/releases/latest | jq -r .tag_name)  # v1.x.y
+        curl -sL "https://github.com/aquasecurity/tfsec/releases/download/${TFSEC_VERSION}/tfsec-linux-amd64" -o tfsec
+        chmod +x tfsec && sudo mv tfsec /usr/local/bin/        
+        tfsec --version
         
         # Docker Scout
         docker scout --help > /dev/null 2>&1 || docker extension install docker/scout-cli:latest
