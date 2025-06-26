@@ -81,7 +81,7 @@ fi
 
 # --- Docker Scout ---
 echo "▶️ Docker Scout CVEs scan"
-docker scout cves "$image" --output json > /tmp/scout.json || true
+docker scout cves --format '{{json .Vulnerabilities}}' "$image" > /tmp/scout.json || true
 jq -c '.vulnerabilities[]?' /tmp/scout.json | while read -r vul; do
   id=$(echo "$vul" | jq -r .cve)
   sev=$(echo "$vul" | jq -r .severity)
