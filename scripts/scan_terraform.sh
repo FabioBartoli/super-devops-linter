@@ -49,7 +49,7 @@ jq -c '.results.violations[]?' /tmp/terrascan.json | while read -r vio; do
   rule=$(echo "$vio" | jq -r .rule_name)
   title="Terrascan: $rule"
   mark_problem
-  issue_info=$(find_issue "$title")
+  issue_info=$(find_issue "$title" || true)          # ← aqui
   if [[ -z "$issue_info" ]]; then
     create_issue "$title" "\`\`\`json\n${vio}\n\`\`\`" "terraform-security"
   else
@@ -58,6 +58,7 @@ jq -c '.results.violations[]?' /tmp/terrascan.json | while read -r vio; do
     [[ "$issue_state" == "closed" ]] && reopen_issue "$issue_no"
   fi
 done
+
 
 
 ###################
