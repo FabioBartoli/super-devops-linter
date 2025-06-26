@@ -15,12 +15,18 @@ ensure_label() {
 }
 
 # Verifica se título já existe
-issue_exists() {
-  local title="$1"
-  local count
-  count=$(curl -s -H "$AUTH" "${API_ROOT}/issues?state=all&per_page=100" | \
-          jq "[.[] | select(.title==\"${title}\")] | length")
-  [[ "$count" -gt 0 ]]
+issue_exists() {               # $1 = title
+  local title="$1" page=1
+  while :; do
+    local result
+    result=$(curl -s -H "$AUTH" \
+      "${API_ROOT}/issues?state=all&per_page=100&page=${page}" \
+      | jq -e --arg t "$title" '.[] | select(.title==$t)' || true)
+    [[ -n "$result" ]] && return 0     # achou
+    [[ "$(jq length <<<"$result")" == "0" ]] && break  # página vazia
+    ((page++))
+  done
+  return 1
 }
 
 mark_problem() {
@@ -40,10 +46,22 @@ create_issue() {
 }
 
 # Retorna "numero:state" da issue com título exato, se existir
-find_issue() {
-  local title="$1"
-  curl -s -H "$AUTH" "${API_ROOT}/issues?state=all&per_page=100" | \
-    jq -r --arg t "$title" '.[] | select(.title==$t) | "\(.number):\(.state)"' | head -n1
+find_issue() {                 # $1 = title
+  local title="$1" page=1
+  while :; do
+    local match
+    match=$(curl -s -H "$AUTH" \
+      "${API_ROOT}/issues?state=all&per_page=100&page=${page}" \
+      | jq -r --arg t "$title" '.[] | select(.title==$t) | "\(.number):\(.state)"' \
+      | head -n1)
+    [[ -n "$match" ]] && { echo "$match"; return 0; }
+    [[ "$(
+      curl -s -H "$AUTH" \
+      "${API_ROOT}/issues?state=all&per_page=100&page=${page}" | jq length
+    )" == "0" ]] && break       # página vazia → fim
+    ((page++))
+  done
+  return 1
 }
 
 # Reabre issue fechada
@@ -53,3 +71,4 @@ reopen_issue() {
        -d '{"state":"open"}' \
        "${API_ROOT}/issues/${number}" >/dev/null
 }
+
