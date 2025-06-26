@@ -13,7 +13,21 @@ fi
 # Terrascan       #
 ###################
 echo "▶️ Terrascan scanning"
-terrascan scan -i terraform -t aws -d "$WORKDIR" -o json > /tmp/terrascan.json || true
+terrascan scan -i terraform -t aws -d "$WORKDIR" -o json > /tmp/terrascan.json || {
+  echo "::error:: Terrascan saiu com código $?"
+  exit 1                                 # falha dura quando a CLI quebra
+}
+
+# 🔎 DEBUG ─ mostra cabeçalho do JSON criado (primeiras 40 linhas)
+echo "---- Terrascan raw output (head) ----"
+head -n 40 /tmp/terrascan.json || true
+echo "-------------------------------------"
+
+# 🔎 DEBUG ─ informa quantas violações o jq encontrou
+viol_count=$(jq '.results.violations | length' /tmp/terrascan.json 2>/dev/null || echo 0)
+echo "Terrascan violations count: $viol_count"
+
+# Parse real (mantém lógica existente)
 jq -c '.results.violations[]?' /tmp/terrascan.json | while read -r vio; do
   rule=$(echo "$vio" | jq -r .rule_name)
   title="Terrascan: $rule"
