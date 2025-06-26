@@ -31,9 +31,16 @@ if [[ -f "${WORKDIR}/Dockerfile" ]]; then
     msg=$(echo "$finding" | jq -r .message)
     title="Hadolint [$code] $msg"
     mark_problem
-    body="\\\json\n${finding}\n\\\"
-    if ! issue_exists "$title"; then
+    body="\`\`\`json\n${finding}\n\`\`\`"
+    issue_info=$(find_issue "$title")
+    if [[ -z "$issue_info" ]]; then
       create_issue "$title" "$body" "lint"
+    else
+      issue_no=${issue_info%%:*}
+      issue_state=${issue_info##*:}
+      if [[ "$issue_state" == "closed" ]]; then
+        reopen_issue "$issue_no"
+      fi
     fi
   done
 else
@@ -58,8 +65,16 @@ if [[ -f "${WORKDIR}/Dockerfile" ]]; then
     sev=$(echo "$vul" | jq -r .Severity)
     title="Trivy Docker: $id in $pkg ($sev)"
     mark_problem
-    if ! issue_exists "$title"; then
-      create_issue "$title" "\\\json\n${vul}\n\\\" "docker-security"
+    body="\`\`\`json\n${vul}\n\`\`\`"
+    issue_info=$(find_issue "$title")
+    if [[ -z "$issue_info" ]]; then
+      create_issue "$title" "$body" "docker-security"
+    else
+      issue_no=${issue_info%%:*}
+      issue_state=${issue_info##*:}
+      if [[ "$issue_state" == "closed" ]]; then
+        reopen_issue "$issue_no"
+      fi
     fi
   done
 
@@ -71,8 +86,16 @@ if [[ -f "${WORKDIR}/Dockerfile" ]]; then
     sev=$(echo "$vul" | jq -r .severity)
     title="Docker Scout: $id ($sev)"
     mark_problem
-    if ! issue_exists "$title"; then
-      create_issue "$title" "\\\json\n${vul}\n\\\" "docker-security"
+    body="\`\`\`json\n${vul}\n\`\`\`"
+    issue_info=$(find_issue "$title")
+    if [[ -z "$issue_info" ]]; then
+      create_issue "$title" "$body" "docker-security"
+    else
+      issue_no=${issue_info%%:*}
+      issue_state=${issue_info##*:}
+      if [[ "$issue_state" == "closed" ]]; then
+        reopen_issue "$issue_no"
+      fi
     fi
   done
 fi
