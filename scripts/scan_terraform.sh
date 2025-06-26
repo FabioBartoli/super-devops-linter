@@ -10,23 +10,21 @@ if ! find "$WORKDIR" -name '*.tf' -print -quit | grep -q .; then
 fi
 
 ###################
-# 1. tfscan       #
+# Terrascan       #
 ###################
-echo "▶️ tfscan scanning"
-tfscan --format json "$WORKDIR" > /tmp/tfscan.json || true
-jq -c '.results[]?' /tmp/tfscan.json | while read -r res; do
-  rule=$(echo "$res" | jq -r .rule_id)
-  title="tfscan: $rule"
+echo "▶️ Terrascan scanning"
+terrascan scan -t terraform -o json -f "$WORKDIR" > /tmp/terrascan.json || true
+jq -c '.results.violations[]?' /tmp/terrascan.json | while read -r vio; do
+  rule=$(echo "$vio" | jq -r .rule_name)
+  title="Terrascan: $rule"
   mark_problem
   issue_info=$(find_issue "$title")
   if [[ -z "$issue_info" ]]; then
-    create_issue "$title" "\`\`\`json\n${res}\n\`\`\`" "terraform-security"
+    create_issue "$title" "\`\`\`json\n${vio}\n\`\`\`" "terraform-security"
   else
     issue_no=${issue_info%%:*}
     issue_state=${issue_info##*:}
-    if [[ "$issue_state" == "closed" ]]; then
-      reopen_issue "$issue_no"
-    fi
+    [[ "$issue_state" == "closed" ]] && reopen_issue "$issue_no"
   fi
 done
 
