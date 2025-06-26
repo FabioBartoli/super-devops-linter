@@ -13,10 +13,22 @@ fi
 # Terrascan       #
 ###################
 echo "▶️ Terrascan scanning"
-terrascan scan -i terraform -t aws -d "$WORKDIR" -o json > /tmp/terrascan.json || {
-  echo "::error:: Terrascan saiu com código $?"
-  exit 1                                 # falha dura quando a CLI quebra
-}
+set +e
+terrascan scan \
+  -i terraform \
+  -t aws \
+  --iac-dir "$WORKDIR" \
+  --log-level debug \
+  -o json > /tmp/terrascan.json
+ts_exit=$?
+set -e
+
+if [[ $ts_exit -ne 0 ]]; then
+  echo "::error:: Terrascan saiu com código $ts_exit"
+  echo "---- Terrascan stderr (últimas 40 linhas) ----"
+  tail -n 40 ~/.terrascan/logs/terrascan.log || true
+  exit 1
+fi
 
 # 🔎 DEBUG ─ mostra cabeçalho do JSON criado (primeiras 40 linhas)
 echo "---- Terrascan raw output (head) ----"
@@ -41,6 +53,7 @@ jq -c '.results.violations[]?' /tmp/terrascan.json | while read -r vio; do
     [[ "$issue_state" == "closed" ]] && reopen_issue "$issue_no"
   fi
 done
+
 
 ###################
 # 2. TFLint       #
