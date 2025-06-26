@@ -10,13 +10,13 @@ if ! find "$WORKDIR" -name '*.tf' -print -quit | grep -q .; then
 fi
 
 ###################
-# 1. tfsec        #
+# 1. tfscan       #
 ###################
-echo "▶️ tfsec scanning"
-tfsec --no-color --format json --out /tmp/tfsec.json "$WORKDIR" || true
-jq -c '.results[]?' /tmp/tfsec.json | while read -r res; do
+echo "▶️ tfscan scanning"
+tfscan --format json "$WORKDIR" > /tmp/tfscan.json || true
+jq -c '.results[]?' /tmp/tfscan.json | while read -r res; do
   rule=$(echo "$res" | jq -r .rule_id)
-  title="tfsec: $rule"
+  title="tfscan: $rule"
   mark_problem
   issue_info=$(find_issue "$title")
   if [[ -z "$issue_info" ]]; then
