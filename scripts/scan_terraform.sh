@@ -27,13 +27,23 @@ done
 ###################
 echo "▶️ Checkov scanning"
 checkov -d "$WORKDIR" -o json > /tmp/checkov.json || true
-jq -c '.results.failed_checks[]?' /tmp/checkov.json | while read -r res; do
+
+# novo parser – funciona com 2.x e 3.x
+jq -c '
+  (
+    if type=="array"
+      then .[]                # Formato 3.x (array)
+      else .results.failed_checks[]?   # Formato 2.x (objeto)
+    end
+  ) | select(.check_result.result=="FAILED")
+' /tmp/checkov.json | while read -r res; do
   id=$(echo "$res" | jq -r .check_id)
   title="Checkov: $id"
   if ! issue_exists "$title"; then
     create_issue "$title" "\`\`\`json\n${res}\n\`\`\`" "terraform-security"
   fi
 done
+
 
 ###################
 # 3. Trivy Config #
