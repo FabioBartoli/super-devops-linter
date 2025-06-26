@@ -21,7 +21,7 @@ if [[ -f "${WORKDIR}/Dockerfile" ]]; then
     fi
   done
 else
-  echo "ℹ️ Nenhum Dockerfile encontrado – pulando Hadolint"
+  echo "Nenhum Dockerfile encontrado - pulando Hadolint"
 fi
 
 ####################################
@@ -30,7 +30,10 @@ fi
 if [[ -f "${WORKDIR}/Dockerfile" ]]; then
   image="local-scan:${GITHUB_SHA::7}"
   echo "▶️ Construindo imagem $image"
-  docker build -q -t "$image" "$CTX" || true
+  if ! docker buildx inspect devops-linter >/dev/null 2>&1; then
+  docker buildx create --name devops-linter --driver docker-container --use
+  fi
+  docker buildx build --load -t "$image" "$CTX"
 
   echo "▶️ Trivy image scan"
   trivy image --quiet --format json -o /tmp/trivy_image.json "$image" || true

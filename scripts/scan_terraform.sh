@@ -5,7 +5,7 @@ source "${GITHUB_ACTION_PATH}/scripts/helpers.sh"
 WORKDIR="$GITHUB_WORKSPACE"
 
 if ! find "$WORKDIR" -name '*.tf' -print -quit | grep -q .; then
-  echo "ℹ️ Nenhum arquivo .tf encontrado – pulando verificações Terraform"
+  echo "ℹ️ Nenhum arquivo .tf encontrado - pulando verificações Terraform"
   exit 0
 fi
 
