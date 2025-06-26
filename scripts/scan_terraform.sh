@@ -15,18 +15,23 @@ fi
 echo "▶️ Terrascan scanning"
 set +e
 terrascan scan \
-  -i terraform \
-  -t aws \
-  --iac-dir "$WORKDIR" \
-  --log-level debug \
+  -i terraform            \
+  -t aws                  \
+  --iac-dir "$WORKDIR"    \
+  --log-level debug       \
   -o json > /tmp/terrascan.json
 ts_exit=$?
 set -e
 
-if [[ $ts_exit -ne 0 ]]; then
-  echo "::error:: Terrascan saiu com código $ts_exit"
-  echo "---- Terrascan stderr (últimas 40 linhas) ----"
-  tail -n 40 ~/.terrascan/logs/terrascan.log || true
+# códigos 3,4,5 significam “violations encontradas / config issues” e geram JSON
+if [[ $ts_exit -ne 0 && $ts_exit -ne 3 && $ts_exit -ne 4 && $ts_exit -ne 5 ]]; then
+  echo "::error:: Terrascan falhou com código $ts_exit"
+  exit 1
+fi
+
+# Se o arquivo não foi criado, algo deu errado mesmo com exit-code tolerado
+if [[ ! -s /tmp/terrascan.json ]]; then
+  echo "::error:: Terrascan não gerou /tmp/terrascan.json"
   exit 1
 fi
 
@@ -35,11 +40,11 @@ echo "---- Terrascan raw output (head) ----"
 head -n 40 /tmp/terrascan.json || true
 echo "-------------------------------------"
 
-# 🔎 DEBUG ─ informa quantas violações o jq encontrou
+# 🔎 DEBUG ─ conta quantas violações há
 viol_count=$(jq '.results.violations | length' /tmp/terrascan.json 2>/dev/null || echo 0)
 echo "Terrascan violations count: $viol_count"
 
-# Parse real (mantém lógica existente)
+# Parse das violações
 jq -c '.results.violations[]?' /tmp/terrascan.json | while read -r vio; do
   rule=$(echo "$vio" | jq -r .rule_name)
   title="Terrascan: $rule"
