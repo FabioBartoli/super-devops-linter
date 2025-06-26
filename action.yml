@@ -31,12 +31,15 @@ runs:
         curl -sL "https://github.com/aquasecurity/tfsec/releases/download/${TFSEC_VERSION}/tfsec-linux-amd64" -o tfsec
         chmod +x tfsec && sudo mv tfsec /usr/local/bin/        
         tfsec --version
-        
+
+        # TFLint
+        TFLINT_VERSION=$(curl -s https://api.github.com/repos/terraform-linters/tflint/releases/latest | jq -r .tag_name)
+        curl -sL "https://github.com/terraform-linters/tflint/releases/download/${TFLINT_VERSION}/tflint_linux_amd64.zip" \
+          -o tflint.zip
+        unzip -q tflint.zip -d /usr/local/bin && chmod +x /usr/local/bin/tflint
+
         # Docker Scout
         docker scout --help > /dev/null 2>&1 || docker extension install docker/scout-cli:latest
-        
-        # Checkov
-        pip install --quiet checkov==3.*
 
     - name: Scan Docker and open issues
       shell: bash
@@ -58,8 +61,8 @@ runs:
       run: |
         if [ -f "$GITHUB_WORKSPACE/issues_found.flag" ] || \
           [ -f "$GITHUB_WORKSPACE/problems_found.flag" ]; then
-          echo "❌ Vulnerabilidades/misconfigs encontradas — falhando job"
+          echo "Vulnerabilidades encontradas — falhando job"
           exit 1
         else
-          echo "✅ Nenhum problema pendente"
+          echo "Nenhum problema pendente"
         fi

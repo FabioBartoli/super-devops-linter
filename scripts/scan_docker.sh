@@ -4,7 +4,7 @@ source "${GITHUB_ACTION_PATH}/scripts/helpers.sh"
 
 WORKDIR="$GITHUB_WORKSPACE"
 CTX="${BUILD_CONTEXT:-.}"
-unset DOCKER_CONTEXT 
+#unset DOCKER_CONTEXT 
 image="local-scan:${GITHUB_SHA::7}"
 
 ######## Contexto e Builder ########################################

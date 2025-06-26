@@ -24,27 +24,19 @@ jq -c '.results[]?' /tmp/tfsec.json | while read -r res; do
 done
 
 ###################
-# 2. Checkov      #
+# 2. TFLint       #
 ###################
-echo "▶️ Checkov scanning"
-checkov -d "$WORKDIR" -o json > /tmp/checkov.json || true
-
-jq -c '
-  if type == "array" then          # Checkov ≥ 3.x
-    .[]
-  else                              # Checkov ≤ 2.x
-    .results.failed_checks[]?
-  end
-  | select(.check_result.result == "FAILED")
-' /tmp/checkov.json | while read -r res; do
-  id=$(echo "$res" | jq -r .check_id)
-  title="Checkov: $id"
+echo "▶️ TFLint scanning"
+tflint --format json "$WORKDIR" > /tmp/tflint.json || true
+jq -c '.diagnostics[]?' /tmp/tflint.json | while read -r diag; do
+  rule=$(echo "$diag" | jq -r .rule_name)
+  msg=$(echo "$diag"  | jq -r .message)
+  title="tflint: $rule - $msg"
   mark_problem
   if ! issue_exists "$title"; then
-    create_issue "$title" "\`\`\`json\n${res}\n\`\`\`" "terraform-security"
+    create_issue "$title" "\`\`\`json\n${diag}\n\`\`\`" "terraform-security"
   fi
 done
-
 
 
 ###################
