@@ -28,8 +28,9 @@ runs:
         
         # Terrascan
         TERRASCAN_VERSION=$(curl -s https://api.github.com/repos/tenable/terrascan/releases/latest | jq -r .tag_name)
-        curl -sL "https://github.com/tenable/terrascan/releases/download/${TERRASCAN_VERSION}/terrascan_${TERRASCAN_VERSION}_Linux_x86_64.tar.gz" \
-          | tar -xz terrascan && sudo mv terrascan /usr/local/bin
+        curl -sL "https://github.com/tenable/terrascan/releases/download/${TERRASCAN_VERSION}/terrascan_Linux_x86_64.tar.gz" \
+          | tar -xz -C /tmp
+        sudo mv /tmp/terrascan /usr/local/bin/ && chmod +x /usr/local/bin/terrascan
 
         # TFLint
         TFLINT_VERSION=$(curl -s https://api.github.com/repos/terraform-linters/tflint/releases/latest | jq -r .tag_name)
