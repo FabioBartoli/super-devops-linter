@@ -81,10 +81,12 @@ fi
 
 # --- Docker Scout ---
 echo "▶️ Docker Scout CVEs scan"
-docker scout cves --format '{{json .Vulnerabilities}}' "$image" > /tmp/scout.json || true
-jq -c '.vulnerabilities[]?' /tmp/scout.json | while read -r vul; do
-  id=$(echo "$vul" | jq -r .cve)
-  sev=$(echo "$vul" | jq -r .severity)
+docker scout cves "$image" --format sarif > /tmp/scout.json || true
+
+# cada vulnerabilidade está em runs[].results[]
+jq -c '.runs[].results[]' /tmp/scout.json | while read -r vul; do
+  id=$(echo "$vul" | jq -r .ruleId)                                   # ex.: CVE-2024-1234
+  sev=$(echo "$vul" | jq -r '.properties.severity // "unknown"')
   title="Docker Scout: $id ($sev)"
   mark_problem
   issue_info=$(find_issue "$title")
