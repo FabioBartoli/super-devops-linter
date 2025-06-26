@@ -19,6 +19,8 @@ jq -c '.results[]?' /tmp/tfsec.json | while read -r res; do
   title="tfsec: $rule"
   if ! issue_exists "$title"; then
     create_issue "$title" "\`\`\`json\n${res}\n\`\`\`" "terraform-security"
+  else
+    mark_problem
   fi
 done
 
@@ -40,6 +42,8 @@ jq -c '
   title="Checkov: $id"
   if ! issue_exists "$title"; then
     create_issue "$title" "\`\`\`json\n${res}\n\`\`\`" "terraform-security"
+  else
+    mark_problem
   fi
 done
 
@@ -55,5 +59,7 @@ jq -c '.Results[]?.Misconfigurations[]?' /tmp/trivy_tf.json | while read -r mis;
   title="Trivy: $id"
   if ! issue_exists "$title"; then
     create_issue "$title" "\`\`\`json\n${mis}\n\`\`\`" "terraform-security"
+  else
+    mark_problem
   fi
 done

@@ -23,6 +23,10 @@ issue_exists() {
   [[ "$count" -gt 0 ]]
 }
 
+mark_problem() {
+  touch "$GITHUB_WORKSPACE/problems_found.flag"
+}
+
 # Cria issue
 create_issue() {
   local title="$1" body="$2" label="$3"
