@@ -27,7 +27,7 @@ runs:
         curl -sfL https://raw.githubusercontent.com/aquasecurity/trivy/main/contrib/install.sh | sh -s -- -b /usr/local/bin
         
         # Terrascan
-        TERRASCAN_VERSION=$(curl -s https://api.github.com/repos/tenable/terrascan/releases/latest | jq -r .tag_name)
+        TERRASCAN_VERSION=$(curl -s https://api.github.com/repos/tenable/terrascan/releases/latest | jq -r .tag_name)  # ex: v1.19.0
         curl -sL "https://github.com/tenable/terrascan/releases/download/${TERRASCAN_VERSION}/terrascan_${TERRASCAN_VERSION#v}_Linux_x86_64.zip" \
           -o terrascan.zip
         unzip -q terrascan.zip terrascan && sudo mv terrascan /usr/local/bin/ && chmod +x /usr/local/bin/terrascan
