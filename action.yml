@@ -26,10 +26,12 @@ runs:
         # Trivy (cli + db embutido)
         curl -sfL https://raw.githubusercontent.com/aquasecurity/trivy/main/contrib/install.sh | sh -s -- -b /usr/local/bin
         
-        # Terrascan
-        curl -L "$(curl -s https://api.github.com/repos/tenable/terrascan/releases/latest | grep -o -E "https://.+?_Darwin_x86_64.tar.gz")" > terrascan.tar.gz
-        tar -xf terrascan.tar.gz terrascan && rm terrascan.tar.gz
-        install terrascan /usr/local/bin && rm terrascan
+        # Terrascan (binário Linux x86_64)
+        TERRASCAN_URL=$(curl -s https://api.github.com/repos/tenable/terrascan/releases/latest \
+          | jq -r '.assets[] | select(.name | test("_Linux_x86_64.tar.gz$")) | .browser_download_url')
+
+        curl -sL "$TERRASCAN_URL" -o terrascan.tar.gz
+        tar -xf terrascan.tar.gz terrascan && sudo install terrascan /usr/local/bin && rm terrascan terrascan.tar.gz
 
         # TFLint
         TFLINT_VERSION=$(curl -s https://api.github.com/repos/terraform-linters/tflint/releases/latest | jq -r .tag_name)
