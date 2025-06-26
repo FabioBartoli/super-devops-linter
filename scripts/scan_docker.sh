@@ -4,11 +4,11 @@ source "${GITHUB_ACTION_PATH}/scripts/helpers.sh"
 
 WORKDIR="$GITHUB_WORKSPACE"
 CTX="${BUILD_CONTEXT:-.}"
-unset DOCKER_CONTEXT                      # evita colisão com CLI
+unset DOCKER_CONTEXT
 image="local-scan:${GITHUB_SHA::7}"
 
 ###############################################################################
-# Docker context + Buildx                                                    #
+# Docker context / Buildx setup                                               #
 ###############################################################################
 docker context inspect default >/dev/null 2>&1 || \
   docker context create default --docker host=unix:///var/run/docker.sock
@@ -27,23 +27,25 @@ fi
 if [[ -f "${WORKDIR}/Dockerfile" ]]; then
   echo "▶️ Hadolint scanning Dockerfile"
   hadolint -f json "${WORKDIR}/Dockerfile" > /tmp/hadolint.json || true
-  jq -c '.[]' /tmp/hadolint.json | while read -r finding; do
-    code=$(echo "$finding" | jq -r .code)
-    msg=$(echo "$finding" | jq -r .message)
-    title="Hadolint [$code] $msg"
-    body="\`\`\`json\n${finding}\n\`\`\`"
 
-    mark_problem                               # flag global
+  if [[ -s /tmp/hadolint.json ]]; then
+    jq -c '.[]?' /tmp/hadolint.json 2>/dev/null | \
+    while read -r finding; do
+      code=$(echo "$finding" | jq -r .code)
+      msg=$(echo  "$finding" | jq -r .message)
+      title="Hadolint [$code] $msg"
+      body="\`\`\`json\n${finding}\n\`\`\`"
 
-    issue_info=$(find_issue "$title")          # "123:open"| "123:closed"| ""
-    if [[ -z "$issue_info" ]]; then
-      create_issue "$title" "$body" "lint"
-    else
-      issue_no=${issue_info%%:*}
-      issue_state=${issue_info##*:}
-      [[ "$issue_state" == "closed" ]] && reopen_issue "$issue_no"
-    fi
-  done
+      mark_problem
+      issue_info=$(find_issue "$title")
+      if [[ -z "$issue_info" ]]; then
+        create_issue "$title" "$body" "lint"
+      else
+        num=${issue_info%%:*}; state=${issue_info##*:}
+        [[ "$state" == "closed" ]] && reopen_issue "$num"
+      fi
+    done
+  fi
 else
   echo "Nenhum Dockerfile encontrado - pulando Hadolint"
 fi
@@ -59,44 +61,50 @@ if [[ -f "${WORKDIR}/Dockerfile" ]]; then
       echo "::error:: Falha total no build"; exit 0; }
   fi
 
-  # --- Trivy (imagem) --------------------------------------------------------
+  # --- Trivy -----------------------------------------------------------------
   echo "▶️ Trivy image scan"
   trivy image --quiet --format json -o /tmp/trivy_image.json "$image" || true
-  jq -c '.Results[]?.Vulnerabilities[]?' /tmp/trivy_image.json | while read -r vul; do
-    id=$(echo "$vul" | jq -r .VulnerabilityID)
-    pkg=$(echo "$vul" | jq -r .PkgName)
-    sev=$(echo "$vul" | jq -r .Severity)
-    title="Trivy Docker: $id in $pkg ($sev)"
-    body="\`\`\`json\n${vul}\n\`\`\`"
+  if [[ -s /tmp/trivy_image.json ]]; then
+    jq -c '.Results[]?.Vulnerabilities[]?' /tmp/trivy_image.json 2>/dev/null | \
+    while read -r vul; do
+      id=$(echo "$vul" | jq -r .VulnerabilityID)
+      pkg=$(echo "$vul" | jq -r .PkgName)
+      sev=$(echo "$vul" | jq -r .Severity)
+      title="Trivy Docker: $id in $pkg ($sev)"
+      body="\`\`\`json\n${vul}\n\`\`\`"
 
-    mark_problem
-    issue_info=$(find_issue "$title")
-    if [[ -z "$issue_info" ]]; then
-      create_issue "$title" "$body" "docker-security"
-    else
-      issue_no=${issue_info%%:*}
-      issue_state=${issue_info##*:}
-      [[ "$issue_state" == "closed" ]] && reopen_issue "$issue_no"
-    fi
-  done
+      mark_problem
+      issue_info=$(find_issue "$title")
+      if [[ -z "$issue_info" ]]; then
+        create_issue "$title" "$body" "docker-security"
+      else
+        num=${issue_info%%:*}; state=${issue_info##*:}
+        [[ "$state" == "closed" ]] && reopen_issue "$num"
+      fi
+    done
+  fi
 
   # --- Docker Scout ----------------------------------------------------------
   echo "▶️ Docker Scout quickview"
   docker scout quickview "$image" --format json > /tmp/scout.json || true
-  jq -c '.vulnerabilities[]?' /tmp/scout.json | while read -r vul; do
-    id=$(echo "$vul" | jq -r .cve)
-    sev=$(echo "$vul" | jq -r .severity)
-    title="Docker Scout: $id ($sev)"
-    body="\`\`\`json\n${vul}\n\`\`\`"
+  if [[ -s /tmp/scout.json ]]; then
+    jq -c '.vulnerabilities[]?' /tmp/scout.json 2>/dev/null | \
+    while read -r vul; do
+      id=$(echo "$vul" | jq -r .cve)
+      sev=$(echo "$vul" | jq -r .severity)
+      title="Docker Scout: $id ($sev)"
+      body="\`\`\`json\n${vul}\n\`\`\`"
 
-    mark_problem
-    issue_info=$(find_issue "$title")
-    if [[ -z "$issue_info" ]]; then
-      create_issue "$title" "$body" "docker-security"
-    else
-      issue_no=${issue_info%%:*}
-      issue_state=${issue_info##*:}
-      [[ "$issue_state" == "closed" ]] && reopen_issue "$issue_no"
-    fi
-  done
+      mark_problem
+      issue_info=$(find_issue "$title")
+      if [[ -z "$issue_info" ]]; then
+        create_issue "$title" "$body" "docker-security"
+      else
+        num=${issue_info%%:*}; state=${issue_info##*:}
+        [[ "$state" == "closed" ]] && reopen_issue "$num"
+      fi
+    done
+  fi
 fi
+
+exit 0
