@@ -42,7 +42,7 @@ runs:
       shell: bash
       env:
         GITHUB_TOKEN: ${{ github.token }}
-        DOCKER_CONTEXT: ${{ inputs.docker-context }}
+        BUILD_CONTEXT:  ${{ inputs.docker-context }}
       run: |
         bash "${{ github.action_path }}/scripts/scan_docker.sh"
 
