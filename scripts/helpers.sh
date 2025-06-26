@@ -14,16 +14,15 @@ ensure_label() {
        "${API_ROOT}/labels" >/dev/null
 }
 
-# Verifica se título já existe
-issue_exists() {               # $1 = title
+issue_exists() {
   local title="$1" page=1
   while :; do
     local result
     result=$(curl -s -H "$AUTH" \
       "${API_ROOT}/issues?state=all&per_page=100&page=${page}" \
       | jq -e --arg t "$title" '.[] | select(.title==$t)' || true)
-    [[ -n "$result" ]] && return 0     # achou
-    [[ "$(jq length <<<"$result")" == "0" ]] && break  # página vazia
+    [[ -n "$result" ]] && return 0
+    [[ "$(jq length <<<"$result" 2>/dev/null || true)" == "0" ]] && break  # página vazia
     ((page++))
   done
   return 1
@@ -45,20 +44,15 @@ create_issue() {
   touch "$GITHUB_WORKSPACE/issues_found.flag"
 }
 
-# Retorna "numero:state" da issue com título exato, se existir
-find_issue() {                 # $1 = title
+find_issue() {
   local title="$1" page=1
   while :; do
-    local match
-    match=$(curl -s -H "$AUTH" \
-      "${API_ROOT}/issues?state=all&per_page=100&page=${page}" \
-      | jq -r --arg t "$title" '.[] | select(.title==$t) | "\(.number):\(.state)"' \
-      | head -n1)
+    local page_json match
+    page_json=$(curl -s -H "$AUTH" \
+      "${API_ROOT}/issues?state=all&per_page=100&page=${page}")
+    match=$(jq -r --arg t "$title" '.[] | select(.title==$t) | "\(.number):\(.state)"' <<<"$page_json" | head -n1)
     [[ -n "$match" ]] && { echo "$match"; return 0; }
-    [[ "$(
-      curl -s -H "$AUTH" \
-      "${API_ROOT}/issues?state=all&per_page=100&page=${page}" | jq length
-    )" == "0" ]] && break       # página vazia → fim
+    [[ "$(jq length <<<"$page_json" 2>/dev/null || true)" == "0" ]] && break   # página vazia
     ((page++))
   done
   return 1
