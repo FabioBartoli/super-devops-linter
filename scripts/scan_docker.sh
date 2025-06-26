@@ -80,7 +80,7 @@ if [[ -f "${WORKDIR}/Dockerfile" ]]; then
 
   # --- Docker Scout ---
   echo "▶️ Docker Scout quickview"
-  docker scout quickview "$image" --format json > /tmp/scout.json || true
+  docker scout quickview "$image" -o json > /tmp/scout.json || true 
   jq -c '.vulnerabilities[]?' /tmp/scout.json | while read -r vul; do
     id=$(echo "$vul" | jq -r .cve)
     sev=$(echo "$vul" | jq -r .severity)
