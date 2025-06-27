@@ -5,14 +5,11 @@ source "${GITHUB_ACTION_PATH}/scripts/helpers.sh"
 WORKDIR="$GITHUB_WORKSPACE"
 
 if ! find "$WORKDIR" -name '*.tf' -print -quit | grep -q .; then
-  echo "ℹ️ Nenhum arquivo .tf encontrado - pulando verificações Terraform"
+  echo "Nenhum arquivo .tf encontrado - pulando verificações Terraform"
   exit 0
 fi
 
-###################
-# Terrascan       #
-###################
-echo "▶️ Terrascan scanning"
+echo "Terrascan scanning"
 set +e
 terrascan scan \
   -i terraform            \
@@ -46,15 +43,10 @@ jq -c '.results.violations[]?' /tmp/terrascan.json | while read -r vio; do
   fi
 done || true
 
-
-###################
-# 3. Trivy Config #
-###################
 echo "Executando Trivy config apenas em Terraform..."
 trivy config \
   --format json \
   --severity HIGH,CRITICAL \
-  --skip-policy-update \
   --skip-files Dockerfile \
   -o /tmp/trivy_tf.json \
   "$WORKDIR" || true
