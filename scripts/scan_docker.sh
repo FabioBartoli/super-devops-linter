@@ -53,14 +53,20 @@ if [[ -f "${WORKDIR}/Dockerfile" ]]; then
 
   # --- Trivy Image Scan ---
   echo "▶️ Trivy image scan"
-  trivy image --quiet --format json -o /tmp/trivy_image.json "$image" || true
+  trivy image \
+    --quiet \
+    --format json \
+    --severity HIGH,CRITICAL \
+    -o /tmp/trivy_image.json \
+    "$image" \
+    || true
 
   # DEBUG Trivy Image
   if [[ -s /tmp/trivy_image.json ]]; then
     echo "---- Trivy image raw (head) ----"
     head -n 30 /tmp/trivy_image.json || true
     echo "-------------------------------"
-    trivy_image_cnt=$(jq '[.Results[]?.Vulnerabilities[]?] | length' /tmp/trivy_image.json 2>/dev/null || echo 0)
+    trivy_image_cnt=$(jq '[.Results[].Vulnerabilities[]? | select(.Severity=="HIGH" or .Severity=="CRITICAL")] | length' /tmp/trivy_image.json)
     echo "▶️ Trivy image vulnerabilities count: $trivy_image_cnt"
   else
     echo "::warning:: Trivy image scan não gerou /tmp/trivy_image.json"
@@ -86,18 +92,19 @@ fi
 
 # --- Docker Scout ---
 echo "▶️ Docker Scout CVEs scan"
-docker scout cves "$image" --output json > /tmp/scout.json || true
+docker scout cves "$image" --format sarif > /tmp/scout.json || true
 
 # DEBUG Scout
 if [[ -s /tmp/scout.json ]]; then
   echo "---- Scout raw (head) ----"
   head -n 30 /tmp/scout.json || true
   echo "--------------------------"
-  scout_cnt=$(jq '[.vulnerabilities[]?] | length' /tmp/scout.json 2>/dev/null || echo 0)
+  scout_cnt=$(jq '[.runs[].results[]?] | length' /tmp/scout.json 2>/dev/null || echo 0)
   echo "▶️ Scout findings count: $scout_cnt"
 else
   echo "::warning:: Scout não gerou /tmp/scout.json"
 fi
+
 
 jq -c '.vulnerabilities[]?' /tmp/scout.json | while read -r vul; do
   id=$(echo "$vul" | jq -r .cve)
