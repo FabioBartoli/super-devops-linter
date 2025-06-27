@@ -22,7 +22,7 @@ runs:
         # Hadolint
         curl -L https://github.com/hadolint/hadolint/releases/latest/download/hadolint-$(uname -s)-$(uname -m) \
           -o /usr/local/bin/hadolint && chmod +x /usr/local/bin/hadolint
-        
+        curl -L https://github.com/hadolint/hadolint/releases/latest/download/hadolint-$(uname -s)-$(uname -m)
         # Trivy (cli + db embutido)
         curl -sfL https://raw.githubusercontent.com/aquasecurity/trivy/main/contrib/install.sh | sh -s -- -b /usr/local/bin
         
@@ -32,16 +32,6 @@ runs:
 
         curl -sL "$TERRASCAN_URL" -o terrascan.tar.gz
         tar -xf terrascan.tar.gz terrascan && sudo install terrascan /usr/local/bin && rm terrascan terrascan.tar.gz
-
-        # TFLint
-        TFLINT_VERSION=$(curl -s https://api.github.com/repos/terraform-linters/tflint/releases/latest | jq -r .tag_name)
-        curl -sL "https://github.com/terraform-linters/tflint/releases/download/${TFLINT_VERSION}/tflint_linux_amd64.zip" \
-          -o tflint.zip
-        unzip -q tflint.zip -d /usr/local/bin && chmod +x /usr/local/bin/tflint
-
-        # Docker Scout
-        curl -fsSL https://raw.githubusercontent.com/docker/scout-cli/main/install.sh -o install-scout.sh
-        sh install-scout.sh
 
     - name: Scan Docker and open issues
       shell: bash
