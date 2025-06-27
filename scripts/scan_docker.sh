@@ -4,16 +4,13 @@ source "${GITHUB_ACTION_PATH}/scripts/helpers.sh"
 
 WORKDIR="$GITHUB_WORKSPACE"
 CTX="${BUILD_CONTEXT:-.}"
-#unset DOCKER_CONTEXT 
 image="local-scan:${GITHUB_SHA::7}"
 
 ######## Contexto e Builder ########################################
-# garante docker context 'default'
 docker context inspect default >/dev/null 2>&1 || \
   docker context create default --docker host=unix:///var/run/docker.sock
 docker context use default
 
-# garante builder 'devops-linter'
 if ! docker buildx inspect devops-linter >/dev/null 2>&1; then
   docker buildx create --name devops-linter --driver docker-container \
                        --use --bootstrap --platform linux/amd64
@@ -38,11 +35,9 @@ if [[ -f "${WORKDIR}/Dockerfile" ]]; then
     else
       issue_no=${issue_info%%:*}
       issue_state=${issue_info##*:}
-      if [[ "$issue_state" == "closed" ]]; then
-        reopen_issue "$issue_no"
-      fi
+      [[ "$issue_state" == "closed" ]] && reopen_issue "$issue_no"
     fi
-  done
+  done || true
 else
   echo "Nenhum Dockerfile encontrado - pulando Hadolint"
 fi
@@ -59,6 +54,18 @@ if [[ -f "${WORKDIR}/Dockerfile" ]]; then
   # --- Trivy ---
   echo "▶️ Trivy image scan"
   trivy image --quiet --format json -o /tmp/trivy_image.json "$image" || true
+
+  # DEBUG Trivy
+  if [[ -s /tmp/trivy_image.json ]]; then
+    echo "---- Trivy raw (head) ----"
+    head -n 30 /tmp/trivy_image.json || true
+    echo "--------------------------"
+    trivy_cnt=$(jq '[.Results[]?.Vulnerabilities[]?] | length' /tmp/trivy_image.json 2>/dev/null || echo 0)
+    echo "Trivy vulnerabilities: $trivy_cnt"
+  else
+    echo "::warning:: Trivy não gerou /tmp/trivy_image.json"
+  fi
+
   jq -c '.Results[]?.Vulnerabilities[]?' /tmp/trivy_image.json | while read -r vul; do
     id=$(echo "$vul" | jq -r .VulnerabilityID)
     pkg=$(echo "$vul" | jq -r .PkgName)
@@ -72,20 +79,28 @@ if [[ -f "${WORKDIR}/Dockerfile" ]]; then
     else
       issue_no=${issue_info%%:*}
       issue_state=${issue_info##*:}
-      if [[ "$issue_state" == "closed" ]]; then
-        reopen_issue "$issue_no"
-      fi
+      [[ "$issue_state" == "closed" ]] && reopen_issue "$issue_no"
     fi
-  done
+  done || true
 fi
 
 # --- Docker Scout ---
 echo "▶️ Docker Scout CVEs scan"
 docker scout cves "$image" --format sarif > /tmp/scout.json || true
 
-# cada vulnerabilidade está em runs[].results[]
-jq -c '.runs[].results[]' /tmp/scout.json | while read -r vul; do
-  id=$(echo "$vul" | jq -r .ruleId)                                   # ex.: CVE-2024-1234
+# DEBUG Scout
+if [[ -s /tmp/scout.json ]]; then
+  echo "---- Scout raw (head) ----"
+  head -n 30 /tmp/scout.json || true
+  echo "--------------------------"
+  scout_cnt=$(jq '[.runs[].results[]?] | length' /tmp/scout.json 2>/dev/null || echo 0)
+  echo "Scout findings: $scout_cnt"
+else
+  echo "::warning:: Scout não gerou /tmp/scout.json"
+fi
+
+jq -c '.runs[].results[]?' /tmp/scout.json | while read -r vul; do
+  id=$(echo "$vul" | jq -r .ruleId)
   sev=$(echo "$vul" | jq -r '.properties.severity // "unknown"')
   title="Docker Scout: $id ($sev)"
   mark_problem
@@ -97,5 +112,4 @@ jq -c '.runs[].results[]' /tmp/scout.json | while read -r vul; do
     issue_state=${issue_info##*:}
     [[ "$issue_state" == "closed" ]] && reopen_issue "$issue_no"
   fi
-done
-
+done || true
