@@ -38,7 +38,7 @@ if [[ -f "${WORKDIR}/Dockerfile" ]]; then
     --exit-code 0 \
     --output /tmp/trivy_image.json \
     imagem-verificada || true
-
+    
   if [[ -s /tmp/trivy_image.json ]]; then
     vuln_count=$(jq '[.Results[].Vulnerabilities[]?] | length' /tmp/trivy_image.json)
     echo "Trivy Docker vulnerabilities count: $vuln_count"
@@ -67,3 +67,6 @@ if [[ -f "${WORKDIR}/Dockerfile" ]]; then
   else
     echo "::warning:: Trivy image scan did not produce /tmp/trivy_image.json"
   fi
+else
+  echo "Nenhum Dockerfile encontrado — pulando verificações Docker"
+fi
