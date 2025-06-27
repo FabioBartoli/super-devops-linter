@@ -14,11 +14,10 @@ if [[ -f "$WORKDIR/Dockerfile" ]]; then
   cat /tmp/hadolint.json || echo "(empty or missing)"
   
   if jq -e '.[0]?' /tmp/hadolint.json >/dev/null 2>&1; then
-    # permite continuar mesmo que um comando interno falhe
     set +e
     jq -c '.[]' /tmp/hadolint.json | while read -r finding; do
-      code=$(jq -r .code    <<<"$finding");
-      msg=$(jq -r .message <<<"$finding");
+      code=$(jq -r .code    <<<"$finding")
+      msg=$(jq -r .message <<<"$finding")
       title="Hadolint [$code] $msg"
       mark_problem
 
@@ -36,7 +35,6 @@ if [[ -f "$WORKDIR/Dockerfile" ]]; then
       fi
     done
     set -e
-  else
   fi
 
   echo "=== 2) Build ==="
