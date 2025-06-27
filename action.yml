@@ -22,7 +22,6 @@ runs:
         # Hadolint
         curl -L https://github.com/hadolint/hadolint/releases/latest/download/hadolint-$(uname -s)-$(uname -m) \
           -o /usr/local/bin/hadolint && chmod +x /usr/local/bin/hadolint
-        curl -L https://github.com/hadolint/hadolint/releases/latest/download/hadolint-$(uname -s)-$(uname -m)
         # Trivy (cli + db embutido)
         curl -sfL https://raw.githubusercontent.com/aquasecurity/trivy/main/contrib/install.sh | sh -s -- -b /usr/local/bin
         

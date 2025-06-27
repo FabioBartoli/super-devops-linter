@@ -14,20 +14,6 @@ ensure_label() {
        "${API_ROOT}/labels" >/dev/null
 }
 
-issue_exists() {
-  local title="$1" page=1
-  while :; do
-    local result
-    result=$(curl -s -H "$AUTH" \
-      "${API_ROOT}/issues?state=all&per_page=100&page=${page}" \
-      | jq -e --arg t "$title" '.[] | select(.title==$t)' || true)
-    [[ -n "$result" ]] && return 0
-    [[ "$(jq length <<<"$result" 2>/dev/null || true)" == "0" ]] && break  # página vazia
-    ((page++))
-  done
-  return 1
-}
-
 mark_problem() {
   touch "$GITHUB_WORKSPACE/problems_found.flag"
 }
@@ -40,7 +26,6 @@ create_issue() {
      '{title:$t,body:$b,labels:$lbls}' \
      | curl -s -X POST -H "$AUTH" -H "Content-Type: application/json" \
             -d @- "${API_ROOT}/issues" >/dev/null
-  # marca para falhar no passo final
   touch "$GITHUB_WORKSPACE/issues_found.flag"
 }
 
