@@ -8,12 +8,16 @@ image="imagem-verificada"
 
 if [[ -f "$WORKDIR/Dockerfile" ]]; then
 
-  # 1) Hadolint
-  echo "Linting Dockerfile with Hadolint..."
+  echo "=== 1) Hadolint ==="
   hadolint -f json "$WORKDIR/Dockerfile" > /tmp/hadolint.json || true
+  HL_EXIT=$?
+  echo "DEBUG: hadolint exit code = $HL_EXIT"
+  echo "DEBUG: content of /tmp/hadolint.json:"
+  cat /tmp/hadolint.json || echo "(arquivo vazio ou não existe)"
 
-  # só processa se for um array JSON não-vazio
-  if [[ -s /tmp/hadolint.json ]] && jq -e '.[0]?' /tmp/hadolint.json >/dev/null 2>&1; then
+  echo "DEBUG: testando se é um array JSON com pelo menos um elemento"
+  if jq -e '.[0]?' /tmp/hadolint.json >/dev/null 2>&1; then
+    echo "DEBUG: parece conter issues, processando…"
     jq -c '.[]' /tmp/hadolint.json | while read -r finding; do
       code=$(jq -r .code    <<<"$finding")
       msg=$(jq -r .message <<<"$finding")
@@ -30,15 +34,15 @@ if [[ -f "$WORKDIR/Dockerfile" ]]; then
       fi
     done
   else
-    echo "No Hadolint issues found."
+    echo "DEBUG: não há issues Hadolint (ou JSON malformado)"
   fi
 
-  # 2) Build
-  echo "Building image '$image'..."
+
+  echo "=== 2) Build ==="
   docker build -t "$image" "$CTX"
 
-  # 3) Trivy image (HIGH,CRITICAL)
-  echo "Scanning image with Trivy (HIGH,CRITICAL)..."
+
+  echo "=== 3) Trivy image (HIGH,CRITICAL) ==="
   trivy image \
     --format json \
     --severity HIGH,CRITICAL \
@@ -46,27 +50,37 @@ if [[ -f "$WORKDIR/Dockerfile" ]]; then
     --exit-code 0 \
     --output /tmp/trivy_image.json \
     "$image" || true
+  TI_EXIT=$?
+  echo "DEBUG: trivy exit code = $TI_EXIT"
+  echo "DEBUG: content of /tmp/trivy_image.json:"
+  cat /tmp/trivy_image.json || echo "(arquivo vazio ou não existe)"
 
-  if [[ -s /tmp/trivy_image.json ]] && jq -e '.Results[].Vulnerabilities | length > 0' /tmp/trivy_image.json >/dev/null 2>&1; then
-    jq -c '.Results[].Vulnerabilities[] | select(.Severity=="HIGH" or .Severity=="CRITICAL")' /tmp/trivy_image.json \
-    | while read -r vuln; do
-        id=$(jq -r .VulnerabilityID <<<"$vuln")
-        pkg=$(jq -r .PkgName            <<<"$vuln")
-        sev=$(jq -r .Severity           <<<"$vuln")
-        title="Trivy Docker: $id in $pkg ($sev)"
-        mark_problem
-        body=$(printf '```json\n%s\n```' "$vuln")
-        issue_info=$(find_issue "$title" || true)
-        if [[ -z "$issue_info" ]]; then
-          create_issue "$title" "$body" "docker-security"
-        else
-          num=${issue_info%%:*}
-          state=${issue_info##*:}
-          [[ "$state" == "closed" ]] && reopen_issue "$num"
-        fi
-      done
+  if [[ -s /tmp/trivy_image.json ]]; then
+    VULN_COUNT=$(jq '[.Results[].Vulnerabilities[]?] | length' /tmp/trivy_image.json)
+    echo "DEBUG: total de vulnerabilidades (todos níveis) = $VULN_COUNT"
+    if (( VULN_COUNT > 0 )); then
+      jq -c '.Results[].Vulnerabilities[] | select(.Severity=="HIGH" or .Severity=="CRITICAL")' /tmp/trivy_image.json \
+      | while read -r vuln; do
+          id=$(jq -r .VulnerabilityID <<<"$vuln")
+          pkg=$(jq -r .PkgName            <<<"$vuln")
+          sev=$(jq -r .Severity           <<<"$vuln")
+          title="Trivy Docker: $id in $pkg ($sev)"
+          mark_problem
+          body=$(printf '```json\n%s\n```' "$vuln")
+          issue_info=$(find_issue "$title" || true)
+          if [[ -z "$issue_info" ]]; then
+            create_issue "$title" "$body" "docker-security"
+          else
+            num=${issue_info%%:*}
+            state=${issue_info##*:}
+            [[ "$state" == "closed" ]] && reopen_issue "$num"
+          fi
+        done
+    else
+      echo "DEBUG: sem vulnerabilidades HIGH/CRITICAL"
+    fi
   else
-    echo "::warning:: no HIGH/CRITICAL vulnerabilities found by Trivy"
+    echo "::warning:: Trivy image scan não gerou /tmp/trivy_image.json"
   fi
 
 else
