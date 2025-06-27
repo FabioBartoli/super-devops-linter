@@ -63,51 +63,49 @@ done || true            # ← evita que pipefail mate o script
 ###################
 # 2. TFLint       #
 ###################
-echo "▶️ TFLint scanning"
+echo "TFLint scanning"
 tflint --format json "$WORKDIR" > /tmp/tflint.json || true
-jq -c '.diagnostics[]?' /tmp/tflint.json | while read -r diag; do
-  rule=$(echo "$diag" | jq -r .rule_name)
-  msg=$(echo "$diag"  | jq -r .message)
-  title="tflint: $rule - $msg"
-  mark_problem
-  issue_info=$(find_issue "$title" || true)
-  if [[ -z "$issue_info" ]]; then
-    create_issue "$title" "\`\`\`json\n${diag}\n\`\`\`" "terraform-security"
-  else
-    issue_no=${issue_info%%:*}
-    issue_state=${issue_info##*:}
-    if [[ "$issue_state" == "closed" ]]; then
-      reopen_issue "$issue_no"
+
+if [[ -s /tmp/tflint.json ]]; then
+  jq -c '.diagnostics[]?' /tmp/tflint.json | while read -r diag; do
+    rule=$(echo "$diag" | jq -r .rule_name)
+    msg=$(echo "$diag"  | jq -r .message)
+    title="tflint: $rule - $msg"
+    mark_problem
+    issue_info=$(find_issue "$title" || true)
+    if [[ -z "$issue_info" ]]; then
+      create_issue "$title" "\`\`\`json\n${diag}\n\`\`\`" "terraform-security"
+    else
+      issue_no=${issue_info%%:*}
+      issue_state=${issue_info##*:}
+      [[ "$issue_state" == "closed" ]] && reopen_issue "$issue_no"
     fi
-  fi
-done
+  done || true
+else
+  echo "::warning:: TFLint não gerou /tmp/tflint.json"
+fi
+
 
 ###################
 # 3. Trivy Config #
 ###################
-echo "▶️ Trivy config scanning"
-trivy config --quiet --format json -o /tmp/trivy_tf.json "$WORKDIR" || true
+echo "Trivy config scanning"
+trivy config --quiet --severity HIGH,CRITICAL --format json -o /tmp/trivy_tf.json "$WORKDIR" || true
 
-# DEBUG Trivy Config
 if [[ -s /tmp/trivy_tf.json ]]; then
-  echo "---- Trivy config raw (head) ----"
-  head -n 30 /tmp/trivy_tf.json || true
-  echo "-------------------------------"
-  trivy_tf_cnt=$(jq '[.Results[]?.Misconfigurations[]?] | length' /tmp/trivy_tf.json 2>/dev/null || echo 0)
-  echo "▶️ Trivy Terraform misconfigurations count: $trivy_tf_cnt"
+  jq -c '.Results[]?.Misconfigurations[]?' /tmp/trivy_tf.json | while read -r mis; do
+    id=$(echo "$mis" | jq -r .ID)
+    title="Trivy Terraform: $id"
+    mark_problem
+    issue_info=$(find_issue "$title" || true)
+    if [[ -z "$issue_info" ]]; then
+      create_issue "$title" "```json\n${mis}\n```" "terraform-security"
+    else
+      issue_no=${issue_info%%:*}
+      issue_state=${issue_info##*:}
+      [[ "$issue_state" == "closed" ]] && reopen_issue "$issue_no"
+    fi
+  done || true
 else
   echo "::warning:: Trivy config não gerou /tmp/trivy_tf.json"
 fi
-
-jq -c '.Results[]?.Misconfigurations[]?' /tmp/trivy_tf.json | while read -r mis; do
-  id=$(echo "$mis" | jq -r .ID)
-  title="Trivy Terraform: $id"
-  mark_problem
-  issue_info=$(find_issue "$title" || true)
-  if [[ -z "$issue_info" ]]; then
-    create_issue "$title" "```json\n${mis}\n```" "terraform-security"
-  else
-    issue_no=${issue_info%%:*}; issue_state=${issue_info##*:}
-    [[ "$issue_state" == "closed" ]] && reopen_issue "$issue_no"
-  fi
-done || true

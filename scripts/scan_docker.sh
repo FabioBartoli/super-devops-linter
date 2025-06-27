@@ -44,50 +44,35 @@ fi
 
 ################## 2. Build + Trivy + Scout ########################
 if [[ -f "${WORKDIR}/Dockerfile" ]]; then
-  echo "▶️ Construindo imagem $image"
+  echo "Construindo imagem $image"
   if ! docker buildx build --load -t "$image" "$CTX"; then
     echo "::warning:: Buildx falhou — tentando docker build clássico"
-    DOCKER_BUILDKIT=0 docker build -t "$image" "$CTX" || \
-      { echo "::error:: Falha total no build"; exit 0; }
+    DOCKER_BUILDKIT=0 docker build -t "$image" "$CTX" || { echo "::error:: Falha total no build"; exit 0; }
   fi
 
-  # --- Trivy Image Scan ---
-  echo "▶️ Trivy image scan"
-  trivy image \
-    --quiet \
-    --format json \
-    --severity HIGH,CRITICAL \
-    -o /tmp/trivy_image.json \
-    "$image" \
-    || true
+  echo "Trivy image scan"
+  trivy image --quiet --format json --severity HIGH,CRITICAL -o /tmp/trivy_image.json "$image" || true
 
-  # DEBUG Trivy Image
   if [[ -s /tmp/trivy_image.json ]]; then
-    echo "---- Trivy image raw (head) ----"
-    head -n 30 /tmp/trivy_image.json || true
-    echo "-------------------------------"
-    trivy_image_cnt=$(jq '[.Results[].Vulnerabilities[]? | select(.Severity=="HIGH" or .Severity=="CRITICAL")] | length' /tmp/trivy_image.json)
-    echo "▶️ Trivy image vulnerabilities count: $trivy_image_cnt"
+    jq -c '.Results[]?.Vulnerabilities[]?' /tmp/trivy_image.json | while read -r vul; do
+      id=$(echo "$vul" | jq -r .VulnerabilityID)
+      pkg=$(echo "$vul" | jq -r .PkgName)
+      sev=$(echo "$vul" | jq -r .Severity)
+      title="Trivy Docker: $id in $pkg ($sev)"
+      mark_problem
+      body="```json\n${vul}\n```"
+      issue_info=$(find_issue "$title" || true)
+      if [[ -z "$issue_info" ]]; then
+        create_issue "$title" "$body" "docker-security"
+      else
+        issue_no=${issue_info%%:*}
+        issue_state=${issue_info##*:}
+        [[ "$issue_state" == "closed" ]] && reopen_issue "$issue_no"
+      fi
+    done || true
   else
     echo "::warning:: Trivy image scan não gerou /tmp/trivy_image.json"
   fi
-
-  jq -c '.Results[]?.Vulnerabilities[]?' /tmp/trivy_image.json | while read -r vul; do
-    id=$(echo "$vul" | jq -r .VulnerabilityID)
-    pkg=$(echo "$vul" | jq -r .PkgName)
-    sev=$(echo "$vul" | jq -r .Severity)
-    title="Trivy Docker: $id in $pkg ($sev)"
-    mark_problem
-    body="```json\n${vul}\n```"
-    issue_info=$(find_issue "$title" || true)
-    if [[ -z "$issue_info" ]]; then
-      create_issue "$title" "$body" "docker-security"
-    else
-      issue_no=${issue_info%%:*}
-      issue_state=${issue_info##*:}
-      [[ "$issue_state" == "closed" ]] && reopen_issue "$issue_no"
-    fi
-  done || true
 fi
 
 # --- Docker Scout ---
@@ -95,29 +80,28 @@ echo "▶️ Docker Scout CVEs scan"
 docker scout cves "$image" --format sarif > /tmp/scout.json || true
 
 # DEBUG Scout
-if [[ -s /tmp/scout.json ]]; then
-  echo "---- Scout raw (head) ----"
-  head -n 30 /tmp/scout.json || true
-  echo "--------------------------"
-  scout_cnt=$(jq '[.runs[].results[]?] | length' /tmp/scout.json 2>/dev/null || echo 0)
-  echo "▶️ Scout findings count: $scout_cnt"
-else
-  echo "::warning:: Scout não gerou /tmp/scout.json"
-fi
+if [[ -f "${WORKDIR}/Dockerfile" ]]; then
+  echo "Docker Scout CVEs scan"
+  docker scout cves "$image" --format gitlab --only-severity high,critical > /tmp/scout.json || true
 
-
-jq -c '.vulnerabilities[]?' /tmp/scout.json | while read -r vul; do
-  id=$(echo "$vul" | jq -r .cve)
-  sev=$(echo "$vul" | jq -r .severity)
-  title="Docker Scout: $id ($sev)"
-  mark_problem
-  body="```json\n${vul}\n```"
-  issue_info=$(find_issue "$title" || true)
-  if [[ -z "$issue_info" ]]; then
-    create_issue "$title" "$body" "docker-security"
+  if [[ -s /tmp/scout.json ]]; then
+    jq -c '.vulnerabilities[]?' /tmp/scout.json | while read -r vul; do
+      id=$(echo "$vul" | jq -r .id)
+      pkg=$(echo "$vul" | jq -r .location.dependency.package.name)
+      sev=$(echo "$vul" | jq -r .severity)
+      title="Docker Scout: $id in $pkg ($sev)"
+      mark_problem
+      body="```json\n${vul}\n```"
+      issue_info=$(find_issue "$title" || true)
+      if [[ -z "$issue_info" ]]; then
+        create_issue "$title" "$body" "docker-security"
+      else
+        issue_no=${issue_info%%:*}
+        issue_state=${issue_info##*:}
+        [[ "$issue_state" == "closed" ]] && reopen_issue "$issue_no"
+      fi
+    done || true
   else
-    issue_no=${issue_info%%:*}
-    issue_state=${issue_info##*:}
-    [[ "$issue_state" == "closed" ]] && reopen_issue "$issue_no"
+    echo "::warning:: Docker Scout não gerou /tmp/scout.json"
   fi
-done || true
+fi
