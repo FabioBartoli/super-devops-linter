@@ -52,16 +52,20 @@ done || true
 ###################
 echo "Executando Trivy config apenas em Terraform..."
 trivy config \
-  --quiet \
-  --severity HIGH,CRITICAL \
   --format json \
-  --file-patterns '*.tf' \
+  --severity HIGH,CRITICAL \
+  --skip-policy-update \
+  --skip-files Dockerfile \
   -o /tmp/trivy_tf.json \
   "$WORKDIR" || true
 
 if [[ -s /tmp/trivy_tf.json ]]; then
-  jq -c '.Results[]?.Misconfigurations[]?' /tmp/trivy_tf.json | while read -r mis; do
+  mis_count=$(jq '[(.Results // [])[]?.Misconfigurations[]?] | length' /tmp/trivy_tf.json 2>/dev/null || echo 0)
+  echo "Trivy Terraform misconfigurations count: $mis_count"
+
+  jq -c '(.Results // [])[]?.Misconfigurations[]?' /tmp/trivy_tf.json | while read -r mis; do
     id=$(jq -r .ID <<<"$mis")
+    echo "Found Terraform misconfiguration $id"
     title="Trivy Terraform: $id"
     mark_problem
     issue_info=$(find_issue "$title" || true)

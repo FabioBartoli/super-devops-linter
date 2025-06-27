@@ -34,15 +34,18 @@ if [[ -f "${WORKDIR}/Dockerfile" ]]; then
     --severity HIGH,CRITICAL \
     --skip-update \
     --exit-code 0 \
-    imagem-verificada \
-    -o /tmp/trivy_image.json || true
+    -o /tmp/trivy_image.json \
+    "$image" || true
 
-  if [[ -s /tmp/trivy_image.json ]]; then
+  if [[ -s /tmp/trivy_image.json ]]; then 
+    vuln_count=$(jq '[.Results[]?.Vulnerabilities[]?] | length' /tmp/trivy_image.json 2>/dev/null || echo 0)
+    echo "Trivy Docker vulnerabilities count: $vuln_count"
+
     jq -c '.Results[]?.Vulnerabilities[]?' /tmp/trivy_image.json | while read -r vuln; do
       id=$(jq -r .VulnerabilityID <<<"$vuln")
       pkg=$(jq -r .PkgName            <<<"$vuln")
       sev=$(jq -r .Severity           <<<"$vuln")
-      title="Trivy Docker: $id in $pkg ($sev)"
+      echo "Found $id in $pkg ($sev)"
       mark_problem
       body="```json\n$vuln\n```"
       issue_info=$(find_issue "$title" || true)
