@@ -42,8 +42,9 @@ if [[ -f "$WORKDIR/Dockerfile" ]]; then
   echo "=== 2) Build ==="
   docker build -t "$image" "$CTX"
 
-  echo "=== 3) Trivy image ==="
+  echo "=== 3) Trivy image (HIGH,CRITICAL) ==="
   trivy image "$image" \
+    --severity HIGH,CRITICAL \
     --format json \
     --output /tmp/trivy_image.json || true
 
