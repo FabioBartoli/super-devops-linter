@@ -9,12 +9,14 @@ image="imagem-verificada"
 if [[ -f "${WORKDIR}/Dockerfile" ]]; then
   echo "Linting Dockerfile with Hadolint..."
   hadolint -f json "${WORKDIR}/Dockerfile" > /tmp/hadolint.json || true
+
   jq -c '.[]' /tmp/hadolint.json | while read -r finding; do
-    code=$(jq -r .code <<<"$finding")
+    code=$(jq -r .code    <<<"$finding")
     msg=$(jq -r .message <<<"$finding")
     title="Hadolint [$code] $msg"
     mark_problem
-    body="```json\n$finding\n```"
+    body=$(printf '```json\n%s\n```' "$finding")
+
     issue_info=$(find_issue "$title" || true)
     if [[ -z "$issue_info" ]]; then
       create_issue "$title" "$body" "lint"
