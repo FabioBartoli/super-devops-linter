@@ -9,8 +9,10 @@ image="imagem-verificada"
 if [[ -f "$WORKDIR/Dockerfile" ]]; then
 
   echo "=== 1) Hadolint ==="
-  hadolint -f json "$WORKDIR/Dockerfile" > /tmp/hadolint.json || true
+  set +e
+  hadolint -f json "$WORKDIR/Dockerfile" > /tmp/hadolint.json
   HL_EXIT=$?
+  set -e
   cat /tmp/hadolint.json || echo "(empty or missing)"
   
   if jq -e '.[0]?' /tmp/hadolint.json >/dev/null 2>&1; then
