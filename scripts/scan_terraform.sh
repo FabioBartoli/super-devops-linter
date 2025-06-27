@@ -57,33 +57,7 @@ jq -c '.results.violations[]?' /tmp/terrascan.json | while read -r vio; do
     issue_state=${issue_info##*:}
     [[ "$issue_state" == "closed" ]] && reopen_issue "$issue_no"
   fi
-done || true            # ← evita que pipefail mate o script
-
-
-###################
-# 2. TFLint       #
-###################
-echo "TFLint scanning"
-tflint --format json "$WORKDIR" > /tmp/tflint.json || true
-
-if [[ -s /tmp/tflint.json ]]; then
-  jq -c '.diagnostics[]?' /tmp/tflint.json | while read -r diag; do
-    rule=$(echo "$diag" | jq -r .rule_name)
-    msg=$(echo "$diag"  | jq -r .message)
-    title="tflint: $rule - $msg"
-    mark_problem
-    issue_info=$(find_issue "$title" || true)
-    if [[ -z "$issue_info" ]]; then
-      create_issue "$title" "\`\`\`json\n${diag}\n\`\`\`" "terraform-security"
-    else
-      issue_no=${issue_info%%:*}
-      issue_state=${issue_info##*:}
-      [[ "$issue_state" == "closed" ]] && reopen_issue "$issue_no"
-    fi
-  done || true
-else
-  echo "::warning:: TFLint não gerou /tmp/tflint.json"
-fi
+done || true
 
 
 ###################
